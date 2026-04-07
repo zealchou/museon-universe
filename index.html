@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>MUSEON 宇宙銀河圖</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #03030A; color: #E8E4DC; font-family: 'Outfit', 'Noto Sans TC', sans-serif; }
+canvas { display: block; }
+
+/* ── Topbar ── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px;
+  background: linear-gradient(180deg, rgba(3,3,10,0.95) 0%, rgba(3,3,10,0) 100%);
+  pointer-events: none;
+}
+.topbar > * { pointer-events: auto; }
+.topbar h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4rem; font-weight: 300; letter-spacing: 0.12em;
+  color: #E8C87A;
+  text-shadow: 0 0 20px rgba(232,200,122,0.4);
+}
+.topbar h1 span { font-weight: 700; }
+.topbar .hint { font-size: .62rem; color: rgba(200,195,185,0.6); letter-spacing: 0.04em; }
+.topbar .version { font-family: 'IBM Plex Mono', monospace; font-size: .55rem; color: rgba(200,195,185,0.4); letter-spacing: 0.08em; }
+
+/* ── Legend Panel ── */
+.legend {
+  position: fixed; top: 56px; left: 14px; z-index: 90;
+  background: rgba(8,8,20,0.88);
+  border: 1px solid rgba(232,200,122,0.15);
+  border-radius: 12px; padding: 16px 18px; width: 210px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 40px rgba(0,0,0,0.5), 0 0 80px rgba(232,200,122,0.03);
+  max-height: calc(100vh - 80px); overflow-y: auto;
+}
+.legend h3 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .56rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(232,200,122,0.7); margin-bottom: 12px;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 9px;
+  margin-bottom: 7px; font-size: .66rem;
+  color: rgba(200,195,185,0.7); cursor: pointer;
+  transition: color .2s, opacity .2s;
+}
+.legend-item:hover { color: #E8C87A; }
+.legend-item.dimmed { opacity: 0.2; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
+.legend-div { height: 1px; background: rgba(232,200,122,0.1); margin: 10px 0; }
+.legend-link { display: flex; align-items: center; gap: 8px; font-size: .6rem; color: rgba(160,155,145,0.7); margin-bottom: 5px; }
+.legend-line { width: 20px; height: 0; flex-shrink: 0; }
+/* Skill 層圖例形狀 */
+.skill-shape {
+  width: 14px; height: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.shape-tetra { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #E8E8E8; }
+.shape-cube { width: 10px; height: 10px; background: #C0C0C0; transform: rotate(15deg); }
+.shape-octa { width: 10px; height: 10px; background: #FFD700; clip-path: polygon(50% 0%,100% 50%,50% 100%,0% 50%); }
+.shape-dodeca { width: 10px; height: 10px; background: #4A90D9; clip-path: polygon(50% 0%,88% 14%,100% 50%,88% 86%,50% 100%,12% 86%,0% 50%,12% 14%); }
+.shape-icosa { width: 10px; height: 10px; background: #E74C3C; clip-path: polygon(50% 0%,83% 12%,100% 43%,91% 78%,65% 100%,35% 100%,9% 78%,0% 43%,17% 12%); }
+
+/* ── Info Panel ── */
+.info-panel {
+  position: fixed; top: 56px; right: 14px; z-index: 90;
+  background: rgba(8,8,20,0.92);
+  border: 1px solid rgba(232,200,122,0.15);
+  border-radius: 12px; padding: 18px 20px; width: 290px;
+  max-height: calc(100vh - 80px); overflow-y: auto;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  transition: opacity .3s, transform .3s;
+  opacity: 0; transform: translateX(16px); pointer-events: none;
+}
+.info-panel.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
+.info-panel .nd-name { font-size: 1.05rem; font-weight: 600; color: #F0EAD6; margin-bottom: 2px; }
+.info-panel .nd-zh { font-size: .78rem; color: rgba(200,195,185,0.6); margin-bottom: 8px; }
+.info-panel .nd-badge {
+  font-family: 'IBM Plex Mono', monospace; font-size: .55rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 100px; display: inline-block; margin-bottom: 14px;
+  border: 1px solid currentColor;
+}
+.info-panel h4 { font-size: .62rem; font-weight: 600; color: rgba(200,195,185,0.45); margin: 12px 0 6px; letter-spacing: .06em; text-transform: uppercase; }
+.dim-list { list-style: none; }
+.dim-list li {
+  font-size: .64rem; color: rgba(200,195,185,0.65);
+  padding: 4px 0; border-bottom: 1px solid rgba(232,200,122,0.06);
+  display: flex; align-items: center; gap: 8px;
+}
+.dim-list li:last-child { border: none; }
+.dim-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.dim-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: rgba(200,195,185,0.4);
+  font-size: 1.1rem; cursor: pointer; transition: color .2s; line-height: 1;
+}
+.dim-close:hover { color: #E8C87A; }
+
+/* ── Tooltip ── */
+.tooltip {
+  position: fixed; z-index: 200; pointer-events: none;
+  background: rgba(8,8,20,0.95);
+  border: 1px solid rgba(232,200,122,0.25);
+  border-radius: 8px; padding: 9px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 20px rgba(232,200,122,0.05);
+  font-size: 12px; line-height: 1.5;
+  opacity: 0; transition: opacity .15s;
+  max-width: 200px;
+}
+.tooltip.show { opacity: 1; }
+.tooltip strong { color: #F0EAD6; font-size: 13px; display: block; margin-bottom: 2px; }
+.tooltip .sub { color: rgba(200,195,185,0.55); font-size: 11px; }
+.tooltip .grp { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .05em; }
+
+/* ── Controls ── */
+.controls {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 90; display: flex; gap: 8px; align-items: center;
+}
+.btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: .58rem; font-weight: 500;
+  letter-spacing: .06em; padding: 7px 16px; border-radius: 100px;
+  border: 1px solid rgba(232,200,122,0.2);
+  background: rgba(8,8,20,0.8);
+  color: rgba(200,195,185,0.65); cursor: pointer;
+  transition: all .2s; backdrop-filter: blur(8px);
+}
+.btn:hover { border-color: rgba(232,200,122,0.6); color: #E8C87A; box-shadow: 0 0 16px rgba(232,200,122,0.1); }
+.btn.active { border-color: #E8C87A; color: #E8C87A; background: rgba(232,200,122,0.08); }
+
+/* ── CSS2D Labels ── */
+.node-label {
+  pointer-events: none; text-align: center; white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.node-label .en { font-size: 9px; font-weight: 500; letter-spacing: .04em; }
+.node-label .zh { font-size: 8px; font-weight: 300; opacity: 0.7; }
+
+/* ── Galaxy Loading ── */
+.loading-screen {
+  position: fixed; inset: 0; z-index: 999;
+  background: #03030A;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; transition: opacity .8s;
+}
+.loading-screen.fade-out { opacity: 0; pointer-events: none; }
+.loading-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2rem; font-weight: 300; letter-spacing: .2em;
+  color: #E8C87A;
+  text-shadow: 0 0 40px rgba(232,200,122,0.5);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+.loading-sub { font-family: 'IBM Plex Mono', monospace; font-size: .6rem; color: rgba(200,195,185,0.4); letter-spacing: .15em; }
+.loading-bar { width: 200px; height: 1px; background: rgba(232,200,122,0.1); position: relative; overflow: hidden; }
+.loading-bar::after {
+  content: ''; position: absolute; left: -100%; top: 0; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, #E8C87A, transparent);
+  animation: loading-sweep 1.5s ease-in-out infinite;
+}
+@keyframes loading-sweep { to { left: 200%; } }
+@keyframes pulse-glow {
+  0%, 100% { text-shadow: 0 0 20px rgba(232,200,122,0.3); }
+  50% { text-shadow: 0 0 60px rgba(232,200,122,0.8), 0 0 100px rgba(232,200,122,0.3); }
+}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-title">MUSEON UNIVERSE</div>
+  <div class="loading-sub">INITIALIZING GALAXY MAP</div>
+  <div class="loading-bar"></div>
+</div>
+
+<div class="topbar">
+  <h1>MUSEON <span>宇宙銀河圖</span></h1>
+  <div class="hint">左鍵旋轉 · 滾輪縮放 · Hover 查看 · 點擊展開星座 · Legend 可篩選層級</div>
+  <div class="version">v1.2 · 5 星系 · 20 星座 · 五層 Skill 粒子</div>
+</div>
+
+<div class="legend" id="legend">
+  <h3>五大星系</h3>
+  <div class="legend-item" data-galaxy="perception">
+    <div class="legend-dot" style="color:#20B2AA; background:#20B2AA;"></div>感知星系 Perception
+  </div>
+  <div class="legend-item" data-galaxy="cognition">
+    <div class="legend-dot" style="color:#9B59B6; background:#9B59B6;"></div>認知星系 Cognition
+  </div>
+  <div class="legend-item" data-galaxy="action">
+    <div class="legend-dot" style="color:#E67E22; background:#E67E22;"></div>行動星系 Action
+  </div>
+  <div class="legend-item" data-galaxy="evolution">
+    <div class="legend-dot" style="color:#2ECC71; background:#2ECC71;"></div>演化星系 Evolution
+  </div>
+  <div class="legend-item" data-galaxy="governance">
+    <div class="legend-dot" style="color:#E74C3C; background:#E74C3C;"></div>治理星系 Governance
+  </div>
+  <div class="legend-div"></div>
+  <h3>Skill 五層</h3>
+  <div class="legend-item" data-skill-layer="cognitive" style="cursor:pointer">
+    <div class="skill-shape"><div class="shape-tetra"></div></div>
+    <span>認知層 Cognitive</span>
+  </div>
+  <div class="legend-item" data-skill-layer="methodology" style="cursor:pointer">
+    <div class="skill-shape"><div class="shape-cube"></div></div>
+    <span>方法論 Methodology</span>
+  </div>
+  <div class="legend-item" data-skill-layer="skill" style="cursor:pointer">
+    <div class="skill-shape"><div class="shape-octa"></div></div>
+    <span>技能層 Skill</span>
+  </div>
+  <div class="legend-item" data-skill-layer="workflow" style="cursor:pointer">
+    <div class="skill-shape"><div class="shape-dodeca"></div></div>
+    <span>工作流 Workflow</span>
+  </div>
+  <div class="legend-item" data-skill-layer="audit" style="cursor:pointer">
+    <div class="skill-shape"><div class="shape-icosa"></div></div>
+    <span>審計層 Audit</span>
+  </div>
+  <div class="legend-div"></div>
+  <h3>Cross-link 類型</h3>
+  <div class="legend-link">
+    <div class="legend-line" style="border-top: 2px dashed #F1C40F;"></div>
+    trigger 監督
+  </div>
+  <div class="legend-link">
+    <div class="legend-line" style="border-top: 2px solid #3498DB;"></div>
+    boost 支持
+  </div>
+  <div class="legend-link">
+    <div class="legend-line" style="border-top: 2px dashed #E74C3C;"></div>
+    dampen 制衡
+  </div>
+</div>
+
+<div class="info-panel" id="infoPanel">
+  <button class="dim-close" onclick="closeInfo()">×</button>
+  <div class="nd-name" id="iName"></div>
+  <div class="nd-zh" id="iZh"></div>
+  <div class="nd-badge" id="iBadge"></div>
+  <h4>核心維度</h4>
+  <ul class="dim-list" id="iDims"></ul>
+</div>
+
+<div class="tooltip" id="tip"></div>
+
+<div class="controls">
+  <button class="btn active" id="rotBtn" onclick="toggleRot()">自動旋轉：開</button>
+  <button class="btn" onclick="resetView()">重置視角</button>
+  <button class="btn" onclick="closeInfo()">取消選取</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// ═══════════════════════════════════════════════════════
+//  GALAXY DATA — 星座定義
+// ═══════════════════════════════════════════════════════
+
+const GALAXIES = {
+  perception: {
+    name: '感知', nameEn: 'Perception',
+    color: '#20B2AA', colorHex: 0x20B2AA,
+    orbitR: [20, 28],     // 螺旋臂半徑範圍
+    armOffset: 0,          // 螺旋臂起始角度
+  },
+  cognition: {
+    name: '認知', nameEn: 'Cognition',
+    color: '#9B59B6', colorHex: 0x9B59B6,
+    orbitR: [14, 22],
+    armOffset: Math.PI * 0.4,
+  },
+  action: {
+    name: '行動', nameEn: 'Action',
+    color: '#E67E22', colorHex: 0xE67E22,
+    orbitR: [10, 18],
+    armOffset: Math.PI * 0.8,
+  },
+  evolution: {
+    name: '演化', nameEn: 'Evolution',
+    color: '#2ECC71', colorHex: 0x2ECC71,
+    orbitR: [16, 26],
+    armOffset: Math.PI * 1.2,
+  },
+  governance: {
+    name: '治理', nameEn: 'Governance',
+    color: '#E74C3C', colorHex: 0xE74C3C,
+    orbitR: [4, 10],
+    armOffset: Math.PI * 1.6,
+  }
+};
+
+// 20 個星座資料
+const CONSTELLATIONS = [
+  // ── 感知星系 ──
+  {
+    id: 'absurdity',
+    name: 'Absurdity', nameZh: '荒謬六芒星',
+    galaxy: 'perception',
+    isCentral: true,  // 中心天體
+    dims: ['六大荒謬守望', '決策盲區偵測', '感知前哨站', 'SSA 三角接地', '觸發系統警覺', '荒謬引力場'],
+  },
+  {
+    id: 'energy_octagram',
+    name: 'Energy Octagram', nameZh: '八方位能量',
+    galaxy: 'perception',
+    dims: ['木/火/土/金/水/風/空/雷', '八方位動力學', '能量讀取引擎', '周期共振', '缺口感知'],
+  },
+  {
+    id: 'market_heptagram',
+    name: 'Market Heptagram', nameZh: '市場七芒星',
+    galaxy: 'perception',
+    dims: ['總體/股票/加密市場', '情緒雷達', 'DARWIN 數據注入', '環境雷達掃描', '缺口分析'],
+  },
+  {
+    id: 'anima_constellation',
+    name: 'Anima Constellation', nameZh: 'ANIMA 星座',
+    galaxy: 'perception',
+    dims: ['七層鏡像', '人物身份追蹤', '外部能量感知', 'Entity Registry', '信任演化'],
+  },
+  {
+    id: 'vitality_constellation',
+    name: 'Vitality', nameZh: '生命力脈動',
+    galaxy: 'perception',
+    dims: ['Pulse 心跳監測', '系統活躍度', '能量存量', '衰減週期偵測', '有機體狀態'],
+  },
+  {
+    id: 'channel_health',
+    name: 'Channel Health', nameZh: '通道健康',
+    galaxy: 'perception',
+    dims: ['Telegram 入口', 'Gateway 守門', '訊號快篩', '群組/私訊分流', '訊息品質'],
+  },
+
+  // ── 認知星系 ──
+  {
+    id: 'thinking_pentagram',
+    name: 'Thinking Pentagram', nameZh: '思維五芒星',
+    galaxy: 'cognition',
+    dims: ['DSE 第一性原理', 'X-RAY 透視', 'Deep Think P0-P3', 'Query Clarity', 'Round Table'],
+  },
+  {
+    id: 'strategy_prism',
+    name: 'Strategy Prism', nameZh: '戰略棱鏡',
+    galaxy: 'cognition',
+    dims: ['Master9 九策軍師', 'SSA 八大槓桿', 'PDEIF 逆熵流', 'X-Model 破框', 'Athena 情報'],
+  },
+  {
+    id: 'memory_health',
+    name: 'Memory Health', nameZh: '記憶星雲',
+    galaxy: 'cognition',
+    dims: ['L1 熱記憶 (Qdrant)', 'L2 溫記憶 (SQLite)', 'L3 冷存檔', 'GraphRAG 社群', 'MemGPT 三層召回'],
+  },
+  {
+    id: 'decision_quality',
+    name: 'Decision Quality', nameZh: '決策品質',
+    galaxy: 'cognition',
+    dims: ['Crystal Rules 結晶', 'Heuristics 啟發', 'Decision Tracker', 'Fix-Verify 閉環', 'Bias 偵測'],
+  },
+
+  // ── 行動星系 ──
+  {
+    id: 'business_twelve',
+    name: 'Business Twelve', nameZh: '商模十二力',
+    galaxy: 'action',
+    dims: ['商模診斷', '品牌建構', 'SSA 顧問銷售', '著陸頁鍛造', 'Course Forge'],
+  },
+  {
+    id: 'brand_seven',
+    name: 'Brand Seven', nameZh: '品牌七力',
+    galaxy: 'action',
+    dims: ['品牌識別治理', 'C15 敘事張力', 'Brand Discovery', 'Brand Builder', '說故事引擎'],
+  },
+  {
+    id: 'conversion_triangle',
+    name: 'Conversion Triangle', nameZh: '轉化三角',
+    galaxy: 'action',
+    dims: ['Video Strategy', 'Landing Page', 'Ad Pilot', 'Sentiment Radar', '轉化漏斗追蹤'],
+  },
+
+  // ── 演化星系 ──
+  {
+    id: 'growth_rings',
+    name: 'Growth Rings', nameZh: '成長年輪',
+    galaxy: 'evolution',
+    dims: ['Meta Learning', 'Knowledge Lattice', 'Morphenix 浴火', 'WEE 逆熵演化', 'ACSF 能力結晶'],
+  },
+  {
+    id: 'warlords_heptagram',
+    name: 'Warlords Heptagram', nameZh: '七武海',
+    galaxy: 'evolution',
+    dims: ['察覺/修復/迭代', '演化/意識/認知', '認同七力', 'Breath Protocol', '自主呼吸系統'],
+  },
+  {
+    id: 'evolution_constellation',
+    name: 'Evolution Constellation', nameZh: '演化星座',
+    galaxy: 'evolution',
+    dims: ['Skill 自動鍛造', '能力缺口偵測', '生態吸收', '人格演化機制', '繼承架構'],
+  },
+  {
+    id: 'morphenix_phoenix',
+    name: 'Morphenix Phoenix', nameZh: '鳳凰涅槃',
+    galaxy: 'evolution',
+    dims: ['形態轉化引擎', '危機重生協議', '自我重構', '迭代週期管理', '系統更新'],
+  },
+  {
+    id: 'nightly_health',
+    name: 'Nightly Health', nameZh: '夜間維運',
+    galaxy: 'evolution',
+    dims: ['Nightly 夜間排程', '記憶整合', '衰減更新', 'Crystal Actuator', '系統自我修復'],
+  },
+
+  // ── 治理星系 ──
+  {
+    id: 'ops_pentagram',
+    name: 'Ops Pentagram', nameZh: '運維五芒星',
+    galaxy: 'governance',
+    dims: ['L1/L2/L4 四層架構', 'Brain 主持人', 'Gateway 守門', 'Fix-Verify 驗收', '五藍圖維護'],
+  },
+  {
+    id: 'doctor_constellation',
+    name: 'Doctor Constellation', nameZh: 'Doctor 診斷',
+    galaxy: 'governance',
+    dims: ['系統健康自檢', 'QA Auditor', 'System Audit', 'BDD 驗收', '問題追蹤'],
+  },
+  {
+    id: 'governance_pentagram',
+    name: 'Governance Pentagram', nameZh: '治理五芒星',
+    galaxy: 'governance',
+    dims: ['Relay 分段機制', '施工前檢查', '施工後驗收', '並行施工規則', 'Session 協議'],
+  },
+];
+
+// Cross-link 連線
+const CROSSLINKS = [
+  // trigger 監督（黃虛線）
+  { from: 'doctor_constellation', to: 'ops_pentagram',         type: 'trigger' },
+  { from: 'governance_pentagram', to: 'nightly_health',        type: 'trigger' },
+  { from: 'decision_quality',     to: 'strategy_prism',        type: 'trigger' },
+  { from: 'absurdity',            to: 'thinking_pentagram',    type: 'trigger' },
+  // boost 支持（藍實線）
+  { from: 'memory_health',        to: 'thinking_pentagram',    type: 'boost' },
+  { from: 'energy_octagram',      to: 'anima_constellation',   type: 'boost' },
+  { from: 'vitality_constellation', to: 'nightly_health',      type: 'boost' },
+  { from: 'strategy_prism',       to: 'business_twelve',       type: 'boost' },
+  { from: 'growth_rings',         to: 'evolution_constellation', type: 'boost' },
+  { from: 'warlords_heptagram',   to: 'morphenix_phoenix',     type: 'boost' },
+  // dampen 制衡（紅虛線）
+  { from: 'governance_pentagram', to: 'thinking_pentagram',    type: 'dampen' },
+  { from: 'doctor_constellation', to: 'channel_health',        type: 'dampen' },
+  { from: 'decision_quality',     to: 'conversion_triangle',   type: 'dampen' },
+  { from: 'ops_pentagram',        to: 'evolution_constellation', type: 'dampen' },
+];
+
+// ═══════════════════════════════════════════════════════
+//  SCENE SETUP
+// ═══════════════════════════════════════════════════════
+
+const W = window.innerWidth, H = window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(W, H);
+labelRenderer.domElement.style.position = 'fixed';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.left = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x03030A);
+scene.fog = new THREE.FogExp2(0x03030A, 0.006);
+
+const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 500);
+camera.position.set(0, 28, 55);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 8;
+controls.maxDistance = 120;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.3;
+
+// ── Lighting ──
+const ambient = new THREE.AmbientLight(0x111122, 3);
+scene.add(ambient);
+
+const pointLight1 = new THREE.PointLight(0xE8C87A, 80, 60);
+pointLight1.position.set(0, 0, 0);
+scene.add(pointLight1);
+
+const pointLight2 = new THREE.PointLight(0x20B2AA, 30, 50);
+pointLight2.position.set(-20, 10, 20);
+scene.add(pointLight2);
+
+const pointLight3 = new THREE.PointLight(0x9B59B6, 20, 50);
+pointLight3.position.set(20, -8, -20);
+scene.add(pointLight3);
+
+// ═══════════════════════════════════════════════════════
+//  BACKGROUND STARS
+// ═══════════════════════════════════════════════════════
+
+function createStarfield() {
+  const count = 3500;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  const colors = new Float32Array(count * 3);
+
+  const starColors = [
+    [1.0, 0.97, 0.9],   // warm white
+    [0.7, 0.85, 1.0],   // cool blue
+    [1.0, 0.9, 0.7],    // golden
+    [0.8, 0.7, 1.0],    // purple
+  ];
+
+  for (let i = 0; i < count; i++) {
+    const r = 60 + Math.random() * 180;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    pos[i * 3 + 2] = r * Math.cos(phi);
+
+    sizes[i] = Math.random() * 2.5 + 0.3;
+    const c = starColors[Math.floor(Math.random() * starColors.length)];
+    colors[i * 3]     = c[0];
+    colors[i * 3 + 1] = c[1];
+    colors[i * 3 + 2] = c[2];
+  }
+
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.5, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+
+  scene.add(new THREE.Points(geo, mat));
+}
+createStarfield();
+
+// ═══════════════════════════════════════════════════════
+//  GALACTIC DISK — 螺旋臂粒子
+// ═══════════════════════════════════════════════════════
+
+function createGalacticDisk() {
+  const count = 4000;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+
+  // 每條螺旋臂對應一個星系
+  const galaxyKeys = Object.keys(GALAXIES);
+  const arms = galaxyKeys.length; // 5
+
+  for (let i = 0; i < count; i++) {
+    const armIdx = i % arms;
+    const gKey = galaxyKeys[armIdx];
+    const galaxy = GALAXIES[gKey];
+
+    const t = Math.random();
+    const armAngle = galaxy.armOffset + t * Math.PI * 1.6; // 螺旋展開角
+    const r = galaxy.orbitR[0] + t * (galaxy.orbitR[1] - galaxy.orbitR[0]);
+    const scatter = (Math.random() - 0.5) * 3.5;
+    const scatterY = (Math.random() - 0.5) * 1.2;
+
+    const x = Math.cos(armAngle) * r + scatter * Math.sin(armAngle);
+    const z = Math.sin(armAngle) * r - scatter * Math.cos(armAngle);
+    const y = scatterY;
+
+    pos[i * 3]     = x;
+    pos[i * 3 + 1] = y;
+    pos[i * 3 + 2] = z;
+
+    // 顏色：星系色 + 微弱白化
+    const color = new THREE.Color(galaxy.color);
+    const fade = 0.3 + Math.random() * 0.7;
+    colors[i * 3]     = color.r * fade;
+    colors[i * 3 + 1] = color.g * fade;
+    colors[i * 3 + 2] = color.b * fade;
+  }
+
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.25, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.6,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+
+  scene.add(new THREE.Points(geo, mat));
+}
+createGalacticDisk();
+
+// ═══════════════════════════════════════════════════════
+//  CENTER — 荒謬六芒星（金色六角形）
+// ═══════════════════════════════════════════════════════
+
+function createCenterStar() {
+  const group = new THREE.Group();
+
+  // 核心發光球
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xE8C87A, transparent: true, opacity: 0.95 });
+  const coreGeo = new THREE.SphereGeometry(1.2, 32, 32);
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  group.add(core);
+
+  // 六芒星（兩個三角形疊加）
+  function makeTriangle(rot, color) {
+    const shape = new THREE.Shape();
+    const r = 2.4;
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + rot;
+      i === 0 ? shape.moveTo(Math.cos(a) * r, Math.sin(a) * r)
+              : shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    shape.closePath();
+    const geo = new THREE.ShapeGeometry(shape);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.25, side: THREE.DoubleSide,
+    });
+    return new THREE.Mesh(geo, mat);
+  }
+
+  const tri1 = makeTriangle(Math.PI / 2, 0xE8C87A);
+  const tri2 = makeTriangle(-Math.PI / 6, 0xFFD700);
+  tri1.rotation.x = tri2.rotation.x = -Math.PI / 2;
+  group.add(tri1, tri2);
+
+  // 光暈環
+  const haloGeo = new THREE.RingGeometry(2.0, 3.5, 64);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0xE8C87A, transparent: true, opacity: 0.08, side: THREE.DoubleSide,
+  });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  halo.rotation.x = -Math.PI / 2;
+  group.add(halo);
+
+  // 外光暈
+  const halo2Geo = new THREE.RingGeometry(3.5, 6, 64);
+  const halo2Mat = new THREE.MeshBasicMaterial({
+    color: 0xE8C87A, transparent: true, opacity: 0.03, side: THREE.DoubleSide,
+  });
+  const halo2 = new THREE.Mesh(halo2Geo, halo2Mat);
+  halo2.rotation.x = -Math.PI / 2;
+  group.add(halo2);
+
+  // CSS2D 標籤
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'node-label';
+  labelDiv.innerHTML = `<div class="en" style="color:#E8C87A;font-size:10px;letter-spacing:.08em">ABSURDITY</div><div class="zh" style="color:rgba(232,200,122,0.6);font-size:9px">荒謬六芒星</div>`;
+  const label = new CSS2DObject(labelDiv);
+  label.position.set(0, 2.2, 0);
+  group.add(label);
+
+  scene.add(group);
+
+  // 為中心天體保存 userData
+  const absurdityData = CONSTELLATIONS.find(c => c.id === 'absurdity');
+  core.userData = { ...absurdityData, isMesh: true, originalEmissive: 0.95, originalColor: new THREE.Color(0xE8C87A) };
+  group.userData.rotationGroup = true;
+  return { group, core, tri1, tri2 };
+}
+const centerStar = createCenterStar();
+
+// ═══════════════════════════════════════════════════════
+//  NEBULA — 星雲光暈
+// ═══════════════════════════════════════════════════════
+
+function createNebula(color, x, y, z, rx, rz) {
+  const geo = new THREE.SphereGeometry(rx, 16, 10);
+  geo.scale(1, 0.15, rz / rx);
+  const mat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.03, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+}
+
+// 三個主要星雲
+createNebula(0x20B2AA, 0, 0, 0, 28, 32);   // 感知（最外）
+createNebula(0x9B59B6, -5, 1, -5, 18, 20); // 認知
+createNebula(0x2ECC71, 6, -1, 4, 22, 24);  // 演化
+
+// ═══════════════════════════════════════════════════════
+//  CONSTELLATION NODES — 星座節點
+// ═══════════════════════════════════════════════════════
+
+const nodeMeshes = [];   // { mesh, data }
+const nodeMap = {};      // id → position (Vector3)
+
+// 計算每個星座的位置（螺旋臂分佈）
+function computeNodePositions() {
+  const galaxyKeys = Object.keys(GALAXIES);
+  const galaxyNodes = {};
+  galaxyKeys.forEach(k => { galaxyNodes[k] = []; });
+
+  CONSTELLATIONS.forEach(c => {
+    if (!c.isCentral) {
+      galaxyNodes[c.galaxy].push(c);
+    }
+  });
+
+  // 為每個星系的節點分配螺旋臂位置
+  galaxyKeys.forEach(gKey => {
+    const galaxy = GALAXIES[gKey];
+    const nodes = galaxyNodes[gKey];
+    nodes.forEach((node, idx) => {
+      const t = (idx + 0.5) / nodes.length;
+      const angle = galaxy.armOffset + t * Math.PI * 1.4 + (Math.random() - 0.5) * 0.3;
+      const r = galaxy.orbitR[0] + t * (galaxy.orbitR[1] - galaxy.orbitR[0]);
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+      const y = (Math.random() - 0.5) * 2.5;
+      node._pos = new THREE.Vector3(x, y, z);
+    });
+  });
+
+  // 中心節點
+  const central = CONSTELLATIONS.find(c => c.isCentral);
+  if (central) central._pos = new THREE.Vector3(0, 0, 0);
+}
+computeNodePositions();
+
+// 建立節點 Mesh
+function createConstellationNode(data) {
+  const galaxy = GALAXIES[data.galaxy];
+  const color = new THREE.Color(galaxy.color);
+
+  // 主節點：IcosahedronGeometry
+  const size = data.isCentral ? 0 : 0.8; // 中心已單獨建立
+  if (data.isCentral) {
+    nodeMap[data.id] = data._pos;
+    return;
+  }
+
+  const geo = new THREE.IcosahedronGeometry(size, 1);
+  const mat = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.4,
+    metalness: 0.3,
+    roughness: 0.5,
+    transparent: true, opacity: 0.9,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(data._pos);
+  mesh.userData = { ...data, isMesh: true, originalColor: color.clone(), originalEmissive: 0.4 };
+
+  // 發光光暈（點光源）
+  const glow = new THREE.PointLight(galaxy.colorHex, 2, 4);
+  glow.position.copy(data._pos);
+  scene.add(glow);
+
+  scene.add(mesh);
+  nodeMeshes.push({ mesh, data });
+  nodeMap[data.id] = data._pos;
+
+  // CSS2D 標籤
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'node-label';
+  const shortName = data.nameZh.length > 6 ? data.nameZh.substring(0, 6) : data.nameZh;
+  labelDiv.innerHTML = `<div class="zh" style="color:${galaxy.color};opacity:0.8;font-size:8px;">${shortName}</div>`;
+  const label = new CSS2DObject(labelDiv);
+  label.position.set(0, 1.2, 0);
+  mesh.add(label);
+
+  return mesh;
+}
+
+CONSTELLATIONS.forEach(c => createConstellationNode(c));
+
+// 中心天體也加入 nodeMap
+nodeMap['absurdity'] = new THREE.Vector3(0, 0, 0);
+
+// ═══════════════════════════════════════════════════════
+//  CROSS-LINKS — 連線
+// ═══════════════════════════════════════════════════════
+
+// 建立發光管線取代 LineBasicMaterial，讓 cross-link 更明顯
+function makeTubeLine(fromPos, toPos, color, opacity, isDashed) {
+  const dir = new THREE.Vector3().subVectors(toPos, fromPos);
+  const length = dir.length();
+
+  if (!isDashed) {
+    // 實線：用細 TubeGeometry 讓線有體積感
+    const mid = new THREE.Vector3().addVectors(fromPos, toPos).multiplyScalar(0.5);
+    mid.y += 0.5; // 輕微弧形
+    const curve = new THREE.QuadraticBezierCurve3(fromPos.clone(), mid, toPos.clone());
+    const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.06, 4, false);
+    const tubeMat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    return new THREE.Mesh(tubeGeo, tubeMat);
+  } else {
+    // 虛線：段狀管線
+    const dashLen = 1.0;
+    const gapLen  = 0.6;
+    const dirN = dir.clone().normalize();
+    const group = new THREE.Group();
+    let d = 0;
+    let drawing = true;
+    while (d < length) {
+      const segEnd = Math.min(d + (drawing ? dashLen : gapLen), length);
+      if (drawing) {
+        const p0 = fromPos.clone().addScaledVector(dirN, d);
+        const p1 = fromPos.clone().addScaledVector(dirN, segEnd);
+        const curve = new THREE.LineCurve3(p0, p1);
+        const segGeo = new THREE.TubeGeometry(curve, 3, 0.06, 4, false);
+        const segMat = new THREE.MeshBasicMaterial({
+          color, transparent: true, opacity,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        });
+        group.add(new THREE.Mesh(segGeo, segMat));
+      }
+      d = segEnd;
+      drawing = !drawing;
+    }
+    return group;
+  }
+}
+
+function createCrossLinks() {
+  CROSSLINKS.forEach(link => {
+    const fromPos = nodeMap[link.from];
+    const toPos   = nodeMap[link.to];
+    if (!fromPos || !toPos) return;
+
+    if (link.type === 'boost') {
+      // 藍色實線（弧形管線，帶發光）
+      const tube = makeTubeLine(fromPos, toPos, 0x3498DB, 0.65, false);
+      scene.add(tube);
+      // 加一層更粗更暗的光暈
+      const glowTube = makeTubeLine(fromPos, toPos, 0x3498DB, 0.18, false);
+      if (glowTube.geometry) {
+        // 放大光暈管
+        const glowGeo = new THREE.TubeGeometry(
+          new THREE.QuadraticBezierCurve3(
+            fromPos.clone(),
+            new THREE.Vector3().addVectors(fromPos, toPos).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.5, 0)),
+            toPos.clone()
+          ), 20, 0.18, 4, false
+        );
+        const glowMat = new THREE.MeshBasicMaterial({ color: 0x3498DB, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false });
+        scene.add(new THREE.Mesh(glowGeo, glowMat));
+      }
+      scene.add(tube);
+    } else {
+      // 虛線：trigger=黃，dampen=紅
+      const color = link.type === 'trigger' ? 0xF1C40F : 0xE74C3C;
+      const opacity = link.type === 'trigger' ? 0.7 : 0.65;
+      const group = makeTubeLine(fromPos, toPos, color, opacity, true);
+      scene.add(group);
+    }
+  });
+}
+createCrossLinks();
+
+// ═══════════════════════════════════════════════════════
+//  SKILL PARTICLES — 五層 Skill 粒子（柏拉圖正多面體）
+// ═══════════════════════════════════════════════════════
+
+// Skill 層定義
+const SKILL_LAYERS = {
+  cognitive:   { name: '認知層',   color: 0xE8E8E8, colorStr: '#E8E8E8', geo: () => new THREE.TetrahedronGeometry(0.25),    size: 0.25 },
+  methodology: { name: '方法論層', color: 0xC0C0C0, colorStr: '#C0C0C0', geo: () => new THREE.BoxGeometry(0.35, 0.35, 0.35), size: 0.35 },
+  skill:       { name: '技能層',   color: 0xFFD700, colorStr: '#FFD700', geo: () => new THREE.OctahedronGeometry(0.3),       size: 0.3  },
+  workflow:    { name: '工作流層', color: 0x4A90D9, colorStr: '#4A90D9', geo: () => new THREE.DodecahedronGeometry(0.3),     size: 0.3  },
+  audit:       { name: '審計層',   color: 0xE74C3C, colorStr: '#E74C3C', geo: () => new THREE.IcosahedronGeometry(0.25),     size: 0.25 },
+};
+
+// Skill 粒子定義（星座ID → Skills陣列）
+const SKILL_MAP = {
+  // 感知星系
+  absurdity: [
+    { name: 'absurdity-radar', label: '荒謬雷達', layer: 'cognitive' },
+    { name: 'signal-keywords', label: '訊號快篩', layer: 'methodology' },
+    { name: 'gap',             label: 'GAP 分析', layer: 'skill' },
+  ],
+  energy_octagram: [
+    { name: 'energy-reading',    label: '能量解讀', layer: 'skill' },
+    { name: 'onemuse-core',      label: 'One Muse 核心', layer: 'cognitive' },
+    { name: 'combined-reading',  label: '合盤系統', layer: 'methodology' },
+  ],
+  market_heptagram: [
+    { name: 'market-macro',     label: '總體經濟', layer: 'skill' },
+    { name: 'market-equity',    label: '股票分析', layer: 'skill' },
+    { name: 'sentiment-radar',  label: '情緒雷達', layer: 'methodology' },
+    { name: 'darwin',           label: 'DARWIN 模擬', layer: 'workflow' },
+  ],
+  anima_constellation: [
+    { name: 'anima-individual', label: 'ANIMA 個體', layer: 'skill' },
+    { name: 'shadow',           label: 'Shadow 辨識', layer: 'methodology' },
+    { name: 'athena',           label: 'ATHENA 情報', layer: 'workflow' },
+  ],
+  vitality_constellation: [
+    { name: 'system-health-check', label: '系統健檢', layer: 'audit' },
+    { name: 'eval-engine',         label: '效能儀表板', layer: 'audit' },
+  ],
+  channel_health: [
+    { name: 'query-clarity', label: '問題品質', layer: 'cognitive' },
+    { name: 'resonance',     label: '感性共振', layer: 'methodology' },
+  ],
+  // 認知星系
+  thinking_pentagram: [
+    { name: 'dse',          label: 'DSE 第一性', layer: 'cognitive' },
+    { name: 'x-ray',        label: 'X-RAY 透視', layer: 'cognitive' },
+    { name: 'deep-think',   label: 'Deep Think', layer: 'methodology' },
+    { name: 'roundtable',   label: '圓桌詰問', layer: 'methodology' },
+  ],
+  strategy_prism: [
+    { name: 'master-strategy', label: '九策軍師', layer: 'skill' },
+    { name: 'pdeif',           label: 'PDEIF 逆熵', layer: 'cognitive' },
+    { name: 'xmodel',          label: 'X-Model 破框', layer: 'methodology' },
+  ],
+  memory_health: [
+    { name: 'knowledge-lattice', label: '知識晶格', layer: 'cognitive' },
+    { name: 'meta-learning',     label: '元學習', layer: 'cognitive' },
+  ],
+  decision_quality: [
+    { name: 'decision-tracker', label: '決策追蹤', layer: 'audit' },
+    { name: 'fix-verify',       label: 'Fix-Verify', layer: 'audit' },
+    { name: 'philo-dialectic',  label: '哲學思辨', layer: 'cognitive' },
+  ],
+  // 行動星系
+  business_twelve: [
+    { name: 'business-12',    label: '商模十二力', layer: 'methodology' },
+    { name: 'ssa-consultant', label: 'SSA 顧問銷售', layer: 'workflow' },
+    { name: 'biz-diagnostic', label: '商業健檢', layer: 'audit' },
+  ],
+  brand_seven: [
+    { name: 'brand-builder',    label: '品牌建構', layer: 'workflow' },
+    { name: 'c15',              label: 'C15 敘事', layer: 'methodology' },
+    { name: 'storytelling-engine', label: '說故事引擎', layer: 'skill' },
+  ],
+  conversion_triangle: [
+    { name: 'video-strategy',      label: '短影音策略', layer: 'skill' },
+    { name: 'landing-page-forge',  label: '著陸頁鍛造', layer: 'workflow' },
+    { name: 'ad-pilot',            label: 'Ad Pilot', layer: 'skill' },
+  ],
+  // 演化星系
+  growth_rings: [
+    { name: 'morphenix',   label: 'Morphenix 浴火', layer: 'workflow' },
+    { name: 'wee',         label: 'WEE 逆熵演化', layer: 'workflow' },
+    { name: 'acsf',        label: 'ACSF 能力結晶', layer: 'audit' },
+  ],
+  warlords_heptagram: [
+    { name: 'shadow-muse', label: '戰略覺察', layer: 'methodology' },
+    { name: 'dharma',      label: '思維轉化', layer: 'cognitive' },
+  ],
+  evolution_constellation: [
+    { name: 'constellation-forge', label: '星座鍛造', layer: 'workflow' },
+    { name: 'sandbox-lab',         label: '沙盒實驗室', layer: 'audit' },
+  ],
+  morphenix_phoenix: [
+    { name: 'morphenix',       label: 'Morphenix', layer: 'workflow' },
+    { name: 'plan-engine',     label: '計畫引擎', layer: 'workflow' },
+  ],
+  nightly_health: [
+    { name: 'system-health-check', label: '系統自檢', layer: 'audit' },
+    { name: 'qa-auditor',          label: 'QA 審計', layer: 'audit' },
+  ],
+  // 治理星系
+  ops_pentagram: [
+    { name: 'orchestrator', label: '編排引擎', layer: 'workflow' },
+    { name: 'plugin-registry', label: '外掛注冊表', layer: 'cognitive' },
+  ],
+  doctor_constellation: [
+    { name: 'qa-auditor',          label: 'QA Auditor', layer: 'audit' },
+    { name: 'system-health-check', label: '系統健檢', layer: 'audit' },
+    { name: 'fix-verify',          label: 'Fix-Verify', layer: 'audit' },
+  ],
+  governance_pentagram: [
+    { name: 'dev-preflight', label: '施工前檢查', layer: 'audit' },
+    { name: 'dev-retro',     label: '開發回溯', layer: 'audit' },
+  ],
+};
+
+// 儲存所有 skill 粒子的動畫資料
+const skillParticles = [];  // { mesh, orbitCenter: Vector3, orbitRadius, orbitSpeed, orbitAngle, orbitAxis, layer }
+let skillParticlesVisible = true;
+
+function createSkillParticles() {
+  CONSTELLATIONS.forEach(constellation => {
+    const skills = SKILL_MAP[constellation.id];
+    if (!skills || !constellation._pos) return;
+
+    const center = constellation._pos.clone();
+
+    skills.forEach((skillDef, idx) => {
+      const layerDef = SKILL_LAYERS[skillDef.layer];
+      if (!layerDef) return;
+
+      // 建立幾何體與材質
+      const geo = layerDef.geo();
+      const mat = new THREE.MeshStandardMaterial({
+        color: layerDef.color,
+        emissive: layerDef.color,
+        emissiveIntensity: 0.6,
+        metalness: 0.5,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      // 公轉軌道設定
+      const orbitRadius = 1.8 + idx * 0.45 + Math.random() * 0.3;
+      const orbitSpeed  = 0.18 + Math.random() * 0.12;
+      const orbitAngle  = (idx / skills.length) * Math.PI * 2 + Math.random() * 0.5;
+
+      // 軌道傾斜軸（讓公轉面各有不同傾斜）
+      const tiltX = (Math.random() - 0.5) * 0.8;
+      const tiltZ = (Math.random() - 0.5) * 0.8;
+      const orbitAxis = new THREE.Vector3(tiltX, 1, tiltZ).normalize();
+
+      // 初始位置
+      const startPos = computeOrbitPos(center, orbitRadius, orbitAngle, orbitAxis);
+      mesh.position.copy(startPos);
+
+      // userData 用於 Hover 偵測
+      mesh.userData = {
+        isSkill: true,
+        skillName: skillDef.name,
+        skillLabel: skillDef.label,
+        layerName: layerDef.name,
+        layerColor: layerDef.colorStr,
+        layer: skillDef.layer,
+        originalEmissive: 0.6,
+        isMesh: false,  // 點擊不展開 info panel
+      };
+
+      scene.add(mesh);
+
+      skillParticles.push({
+        mesh,
+        orbitCenter: center,
+        orbitRadius,
+        orbitSpeed,
+        orbitAngle,
+        orbitAxis,
+        selfRotSpeed: 0.5 + Math.random() * 0.5,
+      });
+    });
+  });
+}
+
+// 計算軌道位置（沿傾斜軸公轉）
+function computeOrbitPos(center, r, angle, axis) {
+  // 建立垂直於 axis 的平面上的圓形軌道
+  const up = new THREE.Vector3(0, 1, 0);
+  const tangent = new THREE.Vector3().crossVectors(axis, up).normalize();
+  if (tangent.length() < 0.01) {
+    tangent.set(1, 0, 0);
+  }
+  const bitangent = new THREE.Vector3().crossVectors(axis, tangent).normalize();
+
+  return new THREE.Vector3(
+    center.x + (Math.cos(angle) * tangent.x + Math.sin(angle) * bitangent.x) * r,
+    center.y + (Math.cos(angle) * tangent.y + Math.sin(angle) * bitangent.y) * r,
+    center.z + (Math.cos(angle) * tangent.z + Math.sin(angle) * bitangent.z) * r,
+  );
+}
+
+createSkillParticles();
+
+// Skill 粒子 Legend 開關
+document.querySelectorAll('.legend-item[data-skill-layer]').forEach(item => {
+  item.addEventListener('click', () => {
+    const layer = item.dataset.skillLayer;
+    const isCurrentlyHidden = item.classList.contains('dimmed');
+    if (isCurrentlyHidden) {
+      item.classList.remove('dimmed');
+    } else {
+      item.classList.add('dimmed');
+    }
+    skillParticles.forEach(p => {
+      if (p.mesh.userData.layer === layer) {
+        p.mesh.visible = isCurrentlyHidden;
+      }
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+//  SPIRAL ARM TUBES — 螺旋臂結構線
+// ═══════════════════════════════════════════════════════
+
+function createSpiralArms() {
+  const galaxyKeys = Object.keys(GALAXIES);
+  galaxyKeys.forEach(gKey => {
+    const galaxy = GALAXIES[gKey];
+    const color = new THREE.Color(galaxy.color);
+    const pts = [];
+    const steps = 80;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const angle = galaxy.armOffset + t * Math.PI * 1.8;
+      const r = galaxy.orbitR[0] * 0.6 + t * galaxy.orbitR[1] * 0.9;
+      pts.push(new THREE.Vector3(
+        Math.cos(angle) * r,
+        Math.sin(t * Math.PI * 0.3) * 0.4,
+        Math.sin(angle) * r,
+      ));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const geo = new THREE.TubeGeometry(curve, 100, 0.04, 4, false);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.12,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    scene.add(new THREE.Mesh(geo, mat));
+  });
+}
+createSpiralArms();
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION — 滑鼠互動
+// ═══════════════════════════════════════════════════════
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const tip = document.getElementById('tip');
+const infoPanel = document.getElementById('infoPanel');
+let selectedMesh = null;
+let hoveredMesh = null;
+
+function onMouseMove(e) {
+  mouse.x = (e.clientX / W) * 2 - 1;
+  mouse.y = -(e.clientY / H) * 2 + 1;
+
+  tip.style.left = (e.clientX + 14) + 'px';
+  tip.style.top  = (e.clientY - 8) + 'px';
+
+  raycaster.setFromCamera(mouse, camera);
+
+  // 先檢查星座節點
+  const consMeshes = nodeMeshes.map(n => n.mesh);
+  const consHits = raycaster.intersectObjects(consMeshes);
+
+  // 再檢查 Skill 粒子
+  const skillMeshes = skillParticles.map(p => p.mesh).filter(m => m.visible);
+  const skillHits = raycaster.intersectObjects(skillMeshes);
+
+  // 合併，取最近的
+  const allHits = [...consHits, ...skillHits].sort((a, b) => a.distance - b.distance);
+
+  if (allHits.length > 0) {
+    const hit = allHits[0].object;
+    if (hoveredMesh !== hit) {
+      if (hoveredMesh && hoveredMesh !== selectedMesh) {
+        if (hoveredMesh.material.emissiveIntensity !== undefined) {
+          hoveredMesh.material.emissiveIntensity = hoveredMesh.userData.originalEmissive || 0.4;
+        }
+      }
+      hoveredMesh = hit;
+      if (hit !== selectedMesh && hit.material.emissiveIntensity !== undefined) {
+        hit.material.emissiveIntensity = 1.5;
+      }
+    }
+
+    const d = hit.userData;
+    if (d.isSkill) {
+      // Skill 粒子 tooltip — 顯示名稱、技能 ID、層級
+      tip.innerHTML = `<strong>${d.skillLabel}</strong><div class="sub" style="font-family:'IBM Plex Mono',monospace;letter-spacing:.04em">${d.skillName}</div><div class="grp" style="color:${d.layerColor};margin-top:4px">◈ ${d.layerName}</div>`;
+    } else {
+      // 星座 tooltip — 顯示星座名稱和星系
+      const galaxy = GALAXIES[d.galaxy] || GALAXIES['perception'];
+      const skills = SKILL_MAP[d.id] || [];
+      const skillCountStr = skills.length > 0 ? ` · ${skills.length} Skills` : '';
+      tip.innerHTML = `<strong>${d.nameZh || d.name}</strong><div class="sub">${d.name || ''}</div><div class="grp" style="color:${galaxy.color};margin-top:3px">${galaxy.name}星系${skillCountStr}</div>`;
+    }
+    tip.classList.add('show');
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    if (hoveredMesh && hoveredMesh !== selectedMesh) {
+      if (hoveredMesh.material.emissiveIntensity !== undefined) {
+        hoveredMesh.material.emissiveIntensity = hoveredMesh.userData.originalEmissive || 0.4;
+      }
+    }
+    hoveredMesh = null;
+    tip.classList.remove('show');
+    renderer.domElement.style.cursor = 'default';
+  }
+}
+
+function onClick(e) {
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = nodeMeshes.map(n => n.mesh);
+  // 也檢查中心核心
+  meshes.push(centerStar.core);
+  const hits = raycaster.intersectObjects(meshes);
+
+  if (hits.length > 0) {
+    const hit = hits[0].object;
+    const data = hit.userData;
+    if (!data || !data.isMesh) return;
+
+    // Reset previous selected
+    if (selectedMesh && selectedMesh !== hit) {
+      if (selectedMesh.material.emissiveIntensity !== undefined) {
+        selectedMesh.material.emissiveIntensity = selectedMesh.userData.originalEmissive || 0.4;
+      }
+    }
+    selectedMesh = hit;
+    if (hit.material.emissiveIntensity !== undefined) {
+      hit.material.emissiveIntensity = 1.8;
+    }
+
+    // Show info panel
+    const galaxyKey = data.galaxy || 'perception';
+    const galaxy = GALAXIES[galaxyKey] || GALAXIES['perception'];
+    document.getElementById('iName').textContent = data.nameZh || data.name;
+    document.getElementById('iZh').textContent = data.name || '';
+
+    const badge = document.getElementById('iBadge');
+    badge.textContent = galaxy.name + '星系';
+    badge.style.color = galaxy.color;
+    badge.style.borderColor = galaxy.color + '60';
+
+    // 也顯示該星座的 Skill 列表
+    const skills = SKILL_MAP[data.id] || [];
+    const skillHtml = skills.length > 0
+      ? `<h4 style="margin-top:12px">關聯 Skills (${skills.length})</h4>
+         <ul class="dim-list">${skills.map(s => {
+           const ld = SKILL_LAYERS[s.layer];
+           return `<li><span class="dim-dot" style="background:${ld ? ld.colorStr : '#888'}"></span><span style="flex:1">${s.label || s.name}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:.5rem;color:${ld ? ld.colorStr : '#888'};opacity:.7">${ld ? ld.name : s.layer}</span></li>`;
+         }).join('')}</ul>`
+      : '';
+
+    const dimList = document.getElementById('iDims');
+    dimList.innerHTML = (data.dims || []).map(d =>
+      `<li><span class="dim-dot" style="background:${galaxy.color}"></span>${d}</li>`
+    ).join('');
+
+    // 在 dimList 後面加入 skill 資訊
+    const existingSkillSection = infoPanel.querySelector('.skill-section');
+    if (existingSkillSection) existingSkillSection.remove();
+    if (skillHtml) {
+      const skillSection = document.createElement('div');
+      skillSection.className = 'skill-section';
+      skillSection.innerHTML = skillHtml;
+      infoPanel.appendChild(skillSection);
+    }
+
+    infoPanel.classList.add('visible');
+  }
+}
+
+window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('click', onClick);
+
+// ═══════════════════════════════════════════════════════
+//  UI CONTROLS
+// ═══════════════════════════════════════════════════════
+
+let autoRot = true;
+
+window.toggleRot = function() {
+  autoRot = !autoRot;
+  controls.autoRotate = autoRot;
+  const btn = document.getElementById('rotBtn');
+  btn.textContent = `自動旋轉：${autoRot ? '開' : '關'}`;
+  btn.classList.toggle('active', autoRot);
+};
+
+window.resetView = function() {
+  camera.position.set(0, 28, 55);
+  controls.target.set(0, 0, 0);
+  controls.update();
+};
+
+window.closeInfo = function() {
+  infoPanel.classList.remove('visible');
+  if (selectedMesh) {
+    selectedMesh.material.emissiveIntensity = selectedMesh.userData.originalEmissive || 0.4;
+    selectedMesh = null;
+  }
+};
+
+// Galaxy legend filter
+let hiddenGalaxies = new Set();
+document.querySelectorAll('.legend-item[data-galaxy]').forEach(item => {
+  item.addEventListener('click', () => {
+    const gKey = item.dataset.galaxy;
+    if (hiddenGalaxies.has(gKey)) {
+      hiddenGalaxies.delete(gKey);
+      item.classList.remove('dimmed');
+    } else {
+      hiddenGalaxies.add(gKey);
+      item.classList.add('dimmed');
+    }
+    nodeMeshes.forEach(({ mesh, data }) => {
+      mesh.visible = !hiddenGalaxies.has(data.galaxy);
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+//  ANIMATION LOOP
+// ═══════════════════════════════════════════════════════
+
+const clock = new THREE.Clock();
+let loadingDone = false;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // 中心六芒星旋轉
+  centerStar.group.rotation.y += 0.003;
+  centerStar.tri1.rotation.z = t * 0.4;
+  centerStar.tri2.rotation.z = -t * 0.3;
+
+  // 點光源脈動
+  pointLight1.intensity = 80 + Math.sin(t * 1.5) * 20;
+
+  // 節點微幅浮動
+  nodeMeshes.forEach(({ mesh }, i) => {
+    const offset = i * 0.7;
+    mesh.position.y = mesh.userData._baseY !== undefined
+      ? mesh.userData._baseY + Math.sin(t * 0.8 + offset) * 0.15
+      : mesh.position.y;
+    if (mesh.userData._baseY === undefined) {
+      mesh.userData._baseY = mesh.position.y;
+    }
+    mesh.rotation.x = t * 0.2 + offset;
+    mesh.rotation.z = t * 0.15 + offset;
+  });
+
+  // ── Skill 粒子公轉 + 自轉 ──
+  skillParticles.forEach((p, i) => {
+    if (!p.mesh.visible) return;
+    // 公轉
+    p.orbitAngle += p.orbitSpeed * 0.008;
+    const newPos = computeOrbitPos(p.orbitCenter, p.orbitRadius, p.orbitAngle, p.orbitAxis);
+    p.mesh.position.copy(newPos);
+    // 自轉
+    p.mesh.rotation.x += p.selfRotSpeed * 0.012;
+    p.mesh.rotation.y += p.selfRotSpeed * 0.009;
+    // 輕微脈動（emissiveIntensity 呼吸感）
+    if (p.mesh !== hoveredMesh && p.mesh !== selectedMesh) {
+      const pulse = 0.5 + Math.sin(t * 1.2 + i * 0.4) * 0.25;
+      p.mesh.material.emissiveIntensity = pulse;
+    }
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+
+  // 載入畫面淡出
+  if (!loadingDone && t > 1.5) {
+    loadingDone = true;
+    const screen = document.getElementById('loadingScreen');
+    screen.classList.add('fade-out');
+    setTimeout(() => screen.style.display = 'none', 900);
+  }
+}
+
+animate();
+
+// ── Resize ──
+window.addEventListener('resize', () => {
+  const nW = window.innerWidth, nH = window.innerHeight;
+  camera.aspect = nW / nH;
+  camera.updateProjectionMatrix();
+  renderer.setSize(nW, nH);
+  labelRenderer.setSize(nW, nH);
+});
+
+console.log('[MUSEON Universe] Galaxy map initialized. 20 constellations, 5 galaxies.');
+</script>
+</body>
+</html>
